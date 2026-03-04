@@ -92,7 +92,7 @@ async function dbDeleteSekolah(id) {
 async function dbGetPesanan() {
   const { data, error } = await sb.from('pesanan').select('*, sekolah(*), menus(*)').order('created_at', { ascending: false });
   if (error) { console.error(error); return []; }
-  return data.map(p => ({ id: p.id, sekolahId: p.sekolah_id, menuId: p.menu_id, jumlah: p.jumlah, tanggal: p.tanggal, sesi: p.waktu, status: p.status, catatan: p.catatan });
+  return data.map(p => ({ id: p.id, sekolahId: p.sekolah_id, menuId: p.menu_id, jumlah: p.jumlah, tanggal: p.tanggal, sesi: p.waktu, status: p.status, catatan: p.catatan }));
 }
 async function dbSavePesanan(obj) {
   const row = { sekolah_id: obj.sekolahId, menu_id: obj.menuId, jumlah: obj.jumlah, tanggal: obj.tanggal, waktu: obj.sesi||'07:00', status: obj.status, catatan: obj.catatan||'' };
@@ -160,7 +160,7 @@ async function dbGetAbsensi(sekolahId) {
   if (sekolahId) query = query.eq('sekolah_id', sekolahId);
   const { data, error } = await query;
   if (error) { console.error(error); return []; }
-  return data.map(a => ({ id: a.id, kelasId: a.kelas_id, menuId: a.menu_id, tanggal: a.tanggal, sesi: a.waktu, hadir: a.hadir, tidakHadir: a.tidak_hadir, catatan: a.catatan });
+  return data.map(a => ({ id: a.id, kelasId: a.kelas_id, menuId: a.menu_id, tanggal: a.tanggal, sesi: a.waktu, hadir: a.hadir, tidakHadir: a.tidak_hadir, catatan: a.catatan }));
 }
 async function dbSaveAbsensi(obj, sekolahId) {
   const row = { sekolah_id: sekolahId, kelas_id: obj.kelasId||null, menu_id: obj.menuId||null, tanggal: obj.tanggal, waktu: obj.sesi||'07:00', hadir: obj.hadir||0, tidak_hadir: obj.tidakHadir||0, catatan: obj.catatan||'' };
@@ -1671,7 +1671,7 @@ function openPesananForm(id=null){
   }
   openModal('modalPesananForm');
 }
-function savePesanan(){
+async function savePesanan(){
   const id=document.getElementById('pesananFormId').value;
   const obj={
     menuId:+document.getElementById('pMenu').value,
@@ -1704,7 +1704,7 @@ function viewPesanan(id){
   openModal('modalDetail');
 }
 function editPesanan(id){openPesananForm(id);}
-function deletePesanan(id){
+async function deletePesanan(id){
   if(!confirm('Hapus pesanan ini?'))return;
   STATE.pesanan=STATE.pesanan.filter(p=>p.id!==id);
   renderAll();showToast('🗑️ Pesanan dihapus');
@@ -1799,7 +1799,7 @@ function openAbsensiForm(id=null){
   }
   openModal('modalAbsensiForm');
 }
-function saveAbsensi(){
+async function saveAbsensi(){
   const id=document.getElementById('absensiFormId').value;
   const obj={
     kelasId:+document.getElementById('aKelas').value,
@@ -1833,7 +1833,7 @@ function viewAbsensi(id){
   openModal('modalDetail');
 }
 function editAbsensi(id){openAbsensiForm(id);}
-function deleteAbsensi(id){
+async function deleteAbsensi(id){
   if(!confirm('Hapus data absensi ini?'))return;
   STATE.absensi=STATE.absensi.filter(a=>a.id!==id);
   renderAll();showToast('🗑️ Absensi dihapus');
@@ -1860,7 +1860,7 @@ function renderKelasModal(){
       </div>
     </div>`).join('');
 }
-function saveKelas(){
+async function saveKelas(){
   const nama=document.getElementById('kelasNama').value;
   const siswa=+document.getElementById('kelasSiswa').value;
   const wali=document.getElementById('kelasWali').value;
@@ -1872,7 +1872,7 @@ function saveKelas(){
   document.getElementById('kelasSiswa').value='';
   document.getElementById('kelasWali').value='';
 }
-function deleteKelas(id){
+async function deleteKelas(id){
   if(!confirm('Hapus kelas ini?'))return;
   STATE.kelas=STATE.kelas.filter(k=>k.id!==id);
   renderKelasModal();renderAll();showToast('🗑️ Kelas dihapus');
@@ -2221,7 +2221,7 @@ function openTerimaSek(id) {
   document.getElementById('tsKondisi').value = 'Baik – Lengkap, Tidak Ada Kerusakan';
   openModal('modalTerimaSek');
 }
-function saveTerimaSek() {
+async function saveTerimaSek() {
   const id = +document.getElementById('tsId').value;
   const jml = +document.getElementById('tsJumlah').value;
   const nama = document.getElementById('tsNama').value;
@@ -2253,7 +2253,7 @@ function openKembaliSek(id) {
   document.getElementById('ksKondisi').value = 'Lengkap – Kondisi Baik';
   openModal('modalKembaliSek');
 }
-function saveKembaliSek() {
+async function saveKembaliSek() {
   const id = +document.getElementById('ksId').value;
   const jml = +document.getElementById('ksJumlah').value;
   const nama = document.getElementById('ksNama').value;
