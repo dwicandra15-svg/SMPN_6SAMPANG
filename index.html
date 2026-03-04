@@ -635,11 +635,11 @@ body {
     <h3>🔐 Masuk Akun Sekolah</h3>
     <div class="inp-g">
       <label>NPSN / Kode Sekolah</label>
-      <input type="text" id="loginUser" placeholder="Masukkan NPSN" value="10200001">
+      <input type="text" id="loginUser" placeholder="Masukkan NPSN" value="">
     </div>
     <div class="inp-g">
       <label>Kata Sandi</label>
-      <input type="password" id="loginPass" placeholder="••••••••" value="1234">
+      <input type="password" id="loginPass" placeholder="••••••••" value="">
     </div>
     <div class="inp-g">
       <label>Masuk Sebagai</label>
@@ -1411,20 +1411,38 @@ async function loadAllFromDB() {
 }
 
 // ── LOGIN ──
-function doLogin(){
-  const u=document.getElementById('loginUser').value;
+async function doLogin(){
+  const u=document.getElementById('loginUser').value.trim();
   const p=document.getElementById('loginPass').value;
   const role=document.getElementById('loginRole').value;
   if(!u||!p){showToast('Lengkapi data login','error');return;}
-  if(u !== AUTH.username || p !== AUTH.password){showToast('NPSN atau password tidak cocok','error');return;}
-  const roleMap={admin:'Administrator',guru:'Guru / Wali Kelas',kepsek:'Kepala Sekolah'};
-  document.getElementById('profileName').textContent = 'Admin Sekolah';
-  document.getElementById('profileRole').textContent = roleMap[role]||'Administrator';
-  document.getElementById('displayUsername').textContent = AUTH.username;
-  document.getElementById('splash').style.display='none';
-  document.getElementById('app').style.display='block';
-  renderAll();
-  showToast('✅ Selamat datang di Portal Sekolah!');
+  const loginBtn = document.querySelector('.btn-login2');
+  if(loginBtn){loginBtn.disabled=true;loginBtn.textContent='⏳ Masuk...';}
+  try {
+    await sbLogin(u, p);
+    const profile = await sbGetProfile();
+    if(profile && profile.role !== 'sekolah'){
+      await sbLogout();
+      showToast('❌ Akun ini bukan akun Sekolah','error');
+      if(loginBtn){loginBtn.disabled=false;loginBtn.textContent='Masuk ke Portal →';}
+      return;
+    }
+    const roleMap={admin:'Administrator',guru:'Guru / Wali Kelas',kepsek:'Kepala Sekolah'};
+    document.getElementById('profileName').textContent = profile?.nama||'Admin Sekolah';
+    document.getElementById('profileRole').textContent = roleMap[role]||'Administrator';
+    document.getElementById('displayUsername').textContent = u;
+    AUTH.username = u;
+    AUTH.sekolahId = profile?.sekolah_id||null;
+    document.getElementById('splash').style.display='none';
+    document.getElementById('app').style.display='block';
+    document.getElementById('supabaseStatusDesc').textContent='✅ Terhubung – ngsksnzstslmbelatunv';
+    document.getElementById('supabaseStatusDesc').style.color='var(--green)';
+    await loadAllFromDB();
+  } catch(e){
+    console.error(e);
+    showToast('❌ Login gagal: '+(e.message||'Periksa NPSN/password'),'error');
+    if(loginBtn){loginBtn.disabled=false;loginBtn.textContent='Masuk ke Portal →';}
+  }
 }
 
 // ── CHANGE USERNAME ──
