@@ -1881,31 +1881,25 @@ async function saveKelas(){
   const wali=document.getElementById('kelasWali').value;
   const tingkat=+document.getElementById('kelasTingkat').value;
   if(!nama){showToast('Nama kelas wajib diisi','error');return;}
-  // Pastikan session aktif
-  const { data: sessionData } = await sb.auth.getSession();
-  if(!sessionData?.session){
-    showToast('❌ Sesi habis, silakan login ulang','error');
-    return;
-  }
-  // Pastikan sekolahId tersedia
+  // Pastikan sekolahId tersedia - coba berbagai sumber
   if(!AUTH.sekolahId) {
     try {
-      const { data } = await sb.from('users').select('sekolah_id').eq('id', sessionData.session.user.id).single();
-      if(data?.sekolah_id) AUTH.sekolahId = data.sekolah_id;
+      const user = await sbGetUser();
+      if(user) {
+        const { data } = await sb.from('users').select('sekolah_id').eq('id', user.id).single();
+        if(data?.sekolah_id) AUTH.sekolahId = data.sekolah_id;
+      }
     } catch(e) { console.error('Gagal ambil sekolahId:', e); }
   }
-  if(!AUTH.sekolahId){showToast('❌ ID Sekolah tidak ditemukan','error');return;}
-  // Insert langsung dengan auth header dari session aktif
+  if(!AUTH.sekolahId){showToast('❌ ID Sekolah tidak ditemukan. Coba logout dan login ulang.','error');return;}
   try {
-    const row = { sekolah_id: AUTH.sekolahId, nama, tingkat: tingkat||0, siswa: siswa||0, wali: wali||'' };
-    const { data, error } = await sb.from('kelas').insert(row).select().single();
-    if(error) throw error;
+    await dbSaveKelas({nama,tingkat,siswa,wali}, AUTH.sekolahId);
     STATE.kelas = await dbGetKelas(AUTH.sekolahId);
     renderKelasModal();renderAll();showToast('✅ Kelas ' + nama + ' berhasil ditambahkan');
     document.getElementById('kelasNama').value='';
     document.getElementById('kelasSiswa').value='';
     document.getElementById('kelasWali').value='';
-  } catch(e){ showToast('❌ Gagal simpan: '+e.message,'error'); console.error(e); }
+  } catch(e){ showToast('❌ Gagal simpan: '+e.message,'error'); }
 }
 async function deleteKelas(id){
   if(!confirm('Hapus kelas ini?'))return;
@@ -2384,3 +2378,94 @@ function saveSplashEditor() {
     emoji: document.getElementById('splashEmojiInput').value || '🏫',
     title: document.getElementById('splashTitleInput').value || 'Portal Sekolah',
     sub: document.getElementById('splashSubInput').value || 'Makan Bergizi Gratis',
+    badge: document.getElementById('splashBadgeInput').value || 'Sekolah Penerima',
+    logoImg: prev.logoImg || '',
+  };
+  saveSplashData(data);
+  applySplashData(data);
+  closeModal('modalSplashEditor');
+  showToast('✅ Tampilan halaman login berhasil diupdate!');
+}
+function applySplashData(data) {
+  if(!data || !Object.keys(data).length) return;
+  const titleEl = document.getElementById('splashTitle');
+  const subEl = document.getElementById('splashSub');
+  const badgeEl = document.getElementById('splashBadge');
+  const ringEl = document.getElementById('splashIconRing');
+  if(titleEl) titleEl.textContent = data.title || 'Portal Sekolah';
+  if(subEl) subEl.textContent = data.sub || 'Makan Bergizi Gratis';
+  if(badgeEl) badgeEl.textContent = data.badge || 'Sekolah Penerima';
+  if(ringEl) {
+    if(data.logoImg) {
+      ringEl.innerHTML = `<img src="${data.logoImg}" style="width:70px;height:70px;object-fit:contain;border-radius:16px">`;
+      ringEl.style.background = 'transparent';
+      ringEl.style.border = 'none';
+    } else {
+      ringEl.innerHTML = data.emoji || '🏫';
+      ringEl.style.background = '';
+      ringEl.style.border = '';
+    }
+  }
+}
+
+// ── AUTO SESSION CHECK ──
+async function initApp() {
+  loadKopFromStorage();
+  applySplashData(getSplashData());
+  try {
+    const { data } = await sb.auth.getSession();
+    if (data?.session) {
+      const profile = await sbGetProfile();
+      if (profile?.role === 'sekolah') {
+        AUTH.username = profile.username || data.session.user.email.split('@')[0];
+        AUTH.sekolahId = profile.sekolah_id;
+        document.getElementById('displayUsername').textContent = AUTH.username;
+        document.getElementById('settingsUsernameDesc').textContent = 'NPSN saat ini: ' + AUTH.username;
+        document.getElementById('profileName').textContent = profile.nama || 'Admin Sekolah';
+        document.getElementById('splash').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+        applyKop();
+        await loadAllFromDB();
+        return;
+      }
+    }
+  } catch(e) { console.error('Session check error:', e); }
+  renderAll();
+}
+initApp();
+
+</script>
+
+<!-- Modal: Edit Splash Screen -->
+<div class="modal-overlay" id="modalSplashEditor">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">✏️ Edit Tampilan Halaman Awal</div>
+    <div class="field-row">
+      <label>Ikon / Emoji</label>
+      <input id="splashEmojiInput" placeholder="🏫" maxlength="4" style="font-size:24px;text-align:center">
+    </div>
+    <div class="field-row">
+      <label>Upload Logo Sekolah</label>
+      <input type="file" id="splashLogoFile" accept="image/*" onchange="previewSplashLogo(this)" style="font-size:13px">
+      <div id="splashLogoPreview" style="margin-top:8px;display:none">
+        <img id="splashLogoPreviewImg" style="height:60px;border-radius:12px;object-fit:contain">
+      </div>
+    </div>
+    <div class="field-row">
+      <label>Judul Portal</label>
+      <input id="splashTitleInput" placeholder="Portal Sekolah">
+    </div>
+    <div class="field-row">
+      <label>Sub Judul</label>
+      <input id="splashSubInput" placeholder="Makan Bergizi Gratis">
+    </div>
+    <div class="field-row">
+      <label>Badge / Label</label>
+      <input id="splashBadgeInput" placeholder="Sekolah Penerima">
+    </div>
+    <button class="btn-submit2" onclick="saveSplashEditor()">💾 Simpan Tampilan</button>
+  </div>
+</div>
+</body>
+</html>
